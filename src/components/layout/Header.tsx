@@ -7,7 +7,7 @@ export function Header() {
       <div className="h-16 flex items-center justify-between px-6 md:px-8 lg:px-16 mx-auto max-w-[1800px]">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center space-x-2">
-            <span className="text-xl font-bold">我的博客111</span>
+            <span className="text-xl font-bold">我的博客11111</span>
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
