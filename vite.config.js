@@ -7,7 +7,9 @@ import { dirname, resolve } from 'path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
-export default defineConfig(() => ({
+export default defineConfig(({ mode, command }) => {
+  console.log('Vite config - mode:', mode, 'command:', command)
+  return {
   base: '/',
   plugins: [
     react({
@@ -28,4 +30,5 @@ export default defineConfig(() => ({
       "@/pages": resolve(__dirname, "./src/pages"),
     },
   },
-}))
+}
+})
