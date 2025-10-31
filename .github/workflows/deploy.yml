@@ -48,8 +48,15 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /home/deployer
+            # 先备份(可选)
+            # sudo cp -r /var/www/myapp /var/www/myapp.backup.$(date +%Y%m%d_%H%M%S)
+            # 清理旧文件
+            sudo rm -rf /var/www/myapp/*
+            sudo rm -rf /var/www/myapp/.[!.]*
+            # 解压新文件
             tar -xzf deploy.tar.gz -C /var/www/myapp/
             rm deploy.tar.gz
+            # 设置权限
             sudo chown -R www-data:www-data /var/www/myapp
             sudo chmod -R 755 /var/www/myapp
             echo "✅ 部署完成！"
