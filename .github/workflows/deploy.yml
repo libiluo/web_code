@@ -68,7 +68,7 @@ jobs:
             cd /home/deployer
 
             echo "========== 1. 清理前的目录状态 =========="
-            sudo ls -la /var/www/myapp/ || echo "目录不存在或无法访问"
+            ls -la /var/www/myapp/ 2>/dev/null || echo "目录不存在或无法访问"
 
             echo ""
             echo "========== 2. 检查上传的压缩包 =========="
@@ -78,25 +78,25 @@ jobs:
 
             echo ""
             echo "========== 3. 清理旧文件 =========="
-            sudo rm -rf /var/www/myapp/*
-            sudo rm -rf /var/www/myapp/.[!.]*
+            rm -rf /var/www/myapp/*
+            rm -rf /var/www/myapp/.[!.]*
             echo "清理后的目录:"
-            sudo ls -la /var/www/myapp/
+            ls -la /var/www/myapp/
 
             echo ""
             echo "========== 4. 解压新文件 =========="
             tar -xzf deploy.tar.gz -C /var/www/myapp/
             echo "解压后的目录结构:"
-            sudo ls -la /var/www/myapp/
-            sudo ls -la /var/www/myapp/assets/ || echo "assets 目录不存在"
+            ls -la /var/www/myapp/
+            ls -la /var/www/myapp/assets/ || echo "assets 目录不存在"
 
             echo ""
             echo "========== 5. 检查 index.html 内容 =========="
-            sudo cat /var/www/myapp/index.html
+            cat /var/www/myapp/index.html
 
             echo ""
             echo "========== 6. 检查是否有 web_code 路径 =========="
-            if sudo grep -r "web_code" /var/www/myapp/; then
+            if grep -r "web_code" /var/www/myapp/; then
               echo "❌ 警告: 在服务器文件中发现 web_code 路径!"
             else
               echo "✅ 服务器文件中没有 web_code 路径"
@@ -105,11 +105,10 @@ jobs:
             echo ""
             echo "========== 7. 设置权限 =========="
             rm deploy.tar.gz
-            sudo chown -R www-data:www-data /var/www/myapp
-            sudo chmod -R 755 /var/www/myapp
+            chmod -R 755 /var/www/myapp
 
             echo ""
             echo "========== 8. 最终目录状态 =========="
-            sudo ls -la /var/www/myapp/
+            ls -la /var/www/myapp/
             echo ""
             echo "✅ 部署完成！"
