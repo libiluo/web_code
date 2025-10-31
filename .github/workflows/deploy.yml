@@ -25,29 +25,11 @@ jobs:
       - name: 🏗️ 构建项目
         run: npm run build
 
-      - name: 🔍 检查构建结果
-        run: |
-          echo "========== 构建产物目录结构 =========="
-          ls -la dist/
-          echo ""
-          echo "========== dist/index.html 内容 =========="
-          cat dist/index.html
-          echo ""
-          echo "========== 检查是否有 web_code 路径 =========="
-          if grep -r "web_code" dist/; then
-            echo "❌ 警告: 发现 web_code 路径!"
-            exit 1
-          else
-            echo "✅ 没有发现 web_code 路径"
-          fi
-
       - name: 📝 创建部署包
         run: |
           cd dist
           tar -czf ../deploy.tar.gz .
           cd ..
-          echo "========== 部署包内容预览 =========="
-          tar -tzf deploy.tar.gz | head -20
 
       - name: 📤 上传到服务器
         uses: appleboy/scp-action@v0.1.7
@@ -66,49 +48,12 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd /home/deployer
-
-            echo "========== 1. 清理前的目录状态 =========="
-            ls -la /var/www/myapp/ 2>/dev/null || echo "目录不存在或无法访问"
-
-            echo ""
-            echo "========== 2. 检查上传的压缩包 =========="
-            ls -lh deploy.tar.gz
-            echo "压缩包内容:"
-            tar -tzf deploy.tar.gz | head -20
-
-            echo ""
-            echo "========== 3. 清理旧文件 =========="
+            # 清理旧文件
             rm -rf /var/www/myapp/*
             rm -rf /var/www/myapp/.[!.]*
-            echo "清理后的目录:"
-            ls -la /var/www/myapp/
-
-            echo ""
-            echo "========== 4. 解压新文件 =========="
+            # 解压新文件
             tar -xzf deploy.tar.gz -C /var/www/myapp/
-            echo "解压后的目录结构:"
-            ls -la /var/www/myapp/
-            ls -la /var/www/myapp/assets/ || echo "assets 目录不存在"
-
-            echo ""
-            echo "========== 5. 检查 index.html 内容 =========="
-            cat /var/www/myapp/index.html
-
-            echo ""
-            echo "========== 6. 检查是否有 web_code 路径 =========="
-            if grep -r "web_code" /var/www/myapp/; then
-              echo "❌ 警告: 在服务器文件中发现 web_code 路径!"
-            else
-              echo "✅ 服务器文件中没有 web_code 路径"
-            fi
-
-            echo ""
-            echo "========== 7. 设置权限 =========="
             rm deploy.tar.gz
+            # 设置权限
             chmod -R 755 /var/www/myapp
-
-            echo ""
-            echo "========== 8. 最终目录状态 =========="
-            ls -la /var/www/myapp/
-            echo ""
             echo "✅ 部署完成！"
