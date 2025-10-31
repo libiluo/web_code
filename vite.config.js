@@ -7,12 +7,8 @@ import { dirname, resolve } from 'path'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
-  // GitHub Pages 部署时需要设置正确的 base 路径
-  // 如果部署到 https://<USERNAME>.github.io/<REPO>/，则设置为 '/<REPO>/'
-  // 如果部署到自定义域名或 https://<USERNAME>.github.io/，则设置为 '/'
-  base: mode === 'production' ? '/web_code/' : '/',
-
+export default defineConfig(() => ({
+  base: '/',
   plugins: [
     react({
       babel: {
