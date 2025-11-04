@@ -49,11 +49,11 @@ jobs:
           script: |
             cd /home/deployer
             # 清理旧文件
-            rm -rf /var/www/myapp/*
-            rm -rf /var/www/myapp/.[!.]*
+            rm -rf /var/www/myapp/frontend/*
+            rm -rf /var/www/myapp/frontend/.[!.]*
             # 解压新文件
-            tar -xzf deploy.tar.gz -C /var/www/myapp/
+            tar -xzf deploy.tar.gz -C /var/www/myapp/frontend/
             rm deploy.tar.gz
             # 设置权限
-            chmod -R 755 /var/www/myapp
+            chmod -R 755 /var/www/myapp/frontend
             echo "✅ 部署完成！"
