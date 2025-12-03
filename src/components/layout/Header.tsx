@@ -18,6 +18,12 @@ export function Header() {
               首页
             </Link>
             <Link
+              to="/books"
+              className="text-sm font-medium transition-colors hover:text-primary"
+            >
+              书迹
+            </Link>
+            <Link
               to="/about"
               className="text-sm font-medium transition-colors hover:text-primary"
             >

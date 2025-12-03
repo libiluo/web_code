@@ -1,48 +1,50 @@
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
-    // File Layout
-    // "rootDir": "./src",
-    // "outDir": "./dist",
+    /* 路径别名 */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@/components": ["src/components"],
-      "@/lib": ["src/lib"],
-      "@/ui": ["src/components/ui"],
-      "@/hooks": ["src/hooks"],
-      "@/pages": ["src/pages"]
+      "@/*": [
+        "src/*"
+      ],
+      "@/components": [
+        "src/components"
+      ],
+      "@/lib": [
+        "src/lib"
+      ],
+      "@/ui": [
+        "src/components/ui"
+      ],
+      "@/hooks": [
+        "src/hooks"
+      ],
+      "@/pages": [
+        "src/pages"
+      ]
     },
-    // Environment Settings
-    // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
+    /* 环境与模块设置 */
+    "module": "esnext", // ✅ 使用现代ES模块
+    "moduleResolution": "bundler", // ✅ 为Vite/webpack优化的解析方式
     "target": "esnext",
-    "types": [],
-    // For nodejs:
-    // "lib": ["esnext"],
-    // "types": ["node"],
-    // and npm install -D @types/node
-    // Other Outputs
+    "jsx": "react-jsx",
+    /* 输出与类型支持 */
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
-    // Stricter Typechecking Options
+    /* 严格类型检查 */
+    "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-    // Style Options
-    // "noImplicitReturns": true,
-    // "noImplicitOverride": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
-    // "noFallthroughCasesInSwitch": true,
-    // "noPropertyAccessFromIndexSignature": true,
-    // Recommended Options
-    "strict": true,
-    "jsx": "react-jsx",
+    /* 兼容性与性能 */
+    "skipLibCheck": true,
+    /* 现代TS选项 */
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
-  }
+    "moduleDetection": "force"
+  },
+  "include": [
+    "src",
+    "vite-env.d.ts"
+  ]
 }

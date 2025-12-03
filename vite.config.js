@@ -28,4 +28,17 @@ export default defineConfig(() => ({
       "@/pages": resolve(__dirname, "./src/pages"),
     },
   },
+
+  // 开发服务器配置
+  server: {
+    port: 5173,
+    proxy: {
+      // 代理所有 /api 请求到后端 NestJS 服务器
+      '/api': {
+        target: 'http://localhost:5521',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '/nestapi'), // 将 /api 重写为 /nestapi
+      },
+    },
+  },
 }))
