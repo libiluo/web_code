@@ -17,7 +17,7 @@ function App() {
         </div>
         <div>
           <h1>Get started</h1>
-          <p>
+          <p className='text-red-500'>
             Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
           </p>
         </div>
