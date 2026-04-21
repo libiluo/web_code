@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { addAccountCategories } from "@/api/modulse/accounting"
 
 type TxType = "expense" | "income"
 
@@ -60,9 +61,20 @@ export default function Accounting() {
     setTxOpen(false)
   }
 
-  function handleAddCategory(cat: Omit<Category, "id">) {
+async function handleAddCategory(cat: Omit<Category, "id">) {
     setCategories((prev) => [...prev, { ...cat, id: Date.now() }])
     setCatOpen(false)
+    try {
+      const res = await addAccountCategories({
+        name: cat.name,
+        type: cat.type,
+        parent_id: cat.parent_id || undefined,
+        icon: cat.icon || undefined,
+      })
+      console.log(res)
+    } catch (error) {
+      console.error("Failed to add category:", error)
+    }
   }
 
   return (
