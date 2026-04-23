@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect , useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,17 +18,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { addAccountCategories } from "@/api/modulse/accounting"
-
+import { addAccountCategories, getCategories } from "@/api/modulse/accounting"
+import type { Category } from "@/api/types"
 type TxType = "expense" | "income"
 
-interface Category {
-  id: number
-  name: string
-  type: TxType
-  parent_id: number | null
-  icon: string | null
-}
+// interface Category {
+//   id: number
+//   name: string
+//   type: TxType
+//   parent_id: number | null
+//   icon: string | null
+// }
 
 interface Transaction {
   id: number
@@ -39,22 +39,19 @@ interface Transaction {
   note: string
 }
 
-const defaultCategories: Category[] = [
-  { id: 1, name: "餐饮", type: "expense", parent_id: null, icon: null },
-  { id: 2, name: "交通", type: "expense", parent_id: null, icon: null },
-  { id: 3, name: "购物", type: "expense", parent_id: null, icon: null },
-  { id: 4, name: "住房", type: "expense", parent_id: null, icon: null },
-  { id: 5, name: "娱乐", type: "expense", parent_id: null, icon: null },
-  { id: 6, name: "工资", type: "income", parent_id: null, icon: null },
-  { id: 7, name: "奖金", type: "income", parent_id: null, icon: null },
-  { id: 8, name: "投资", type: "income", parent_id: null, icon: null },
-]
 
 export default function Accounting() {
-  const [categories, setCategories] = useState<Category[]>(defaultCategories)
+  const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [txOpen, setTxOpen] = useState(false)
   const [catOpen, setCatOpen] = useState(false)
+
+  useEffect(()=>{
+    getCategories({type:'expense'}).then((res: Category[])=>{
+      console.log(res)
+      setCategories(res)
+    })
+  },[])
 
   function handleAddTransaction(tx: Omit<Transaction, "id">) {
     setTransactions((prev) => [{ ...tx, id: Date.now() }, ...prev])

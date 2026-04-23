@@ -16,7 +16,7 @@ const SUCCESS_CODE = 200
 
 const instance: AxiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',
-  timeout: 15000,
+  timeout: 300000,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -58,8 +58,8 @@ instance.interceptors.response.use(
 )
 
 export const request = {
-  get<T = unknown>(url: string, config?: AxiosRequestConfig) {
-    return instance.get<unknown, T>(url, config)
+  get<T = unknown>(url: string, params?: object, config?: AxiosRequestConfig) {
+    return instance.get<unknown, T>(url, { params, ...config })
   },
   post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) {
     return instance.post<unknown, T>(url, data, config)
