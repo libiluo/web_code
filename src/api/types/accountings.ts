@@ -1,5 +1,20 @@
 import type { AccountType } from "./basicModel";
 
+/**
+ * 添加交易涉及类型
+ */
+
+export interface AddTransactionEntryRequest {
+    category_id: number
+    type: AccountType
+    amount: number
+    transaction_date: string
+    note?: string
+}
+
+/**
+ * 交易类型涉及类型
+ */
 export interface AddAccountCategoryRequest {
     name :string,
     type : AccountType,
@@ -7,7 +22,6 @@ export interface AddAccountCategoryRequest {
     icon?: string,
     sort_order?: number
 }
-
 export interface CategoryListRequest {
     type?: AccountType
 }

@@ -4,6 +4,7 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios'
+import { toast } from 'sonner'
 
 interface ApiResponse<T = unknown> {
   code: number
@@ -33,9 +34,13 @@ instance.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
     const { code, message, data } = response.data
     if (code !== SUCCESS_CODE) {
-      if (code === 401) {
-        localStorage.removeItem(TOKEN_KEY)
-        window.location.href = '/login'
+      switch (code) {
+        case 401:
+          localStorage.removeItem(TOKEN_KEY)
+          window.location.href = '/login'
+          break
+        default:
+          toast.error(message || 'Request failed')
       }
       return Promise.reject(new Error(message || 'Request failed'))
     }
@@ -53,6 +58,7 @@ instance.interceptors.response.use(
             : status && status >= 500
               ? 'Server error'
               : error.message || 'Network error'
+    toast.error(msg)
     return Promise.reject(new Error(msg))
   },
 )

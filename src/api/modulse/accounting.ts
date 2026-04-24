@@ -1,8 +1,15 @@
 import request from "../request";
-import type { AddAccountCategoryRequest, Category, CategoryListRequest } from "../types";
+import type { 
+    //交易类型相关
+    AddAccountCategoryRequest, 
+    Category, 
+    CategoryListRequest,
+    //交易相关
+    AddTransactionEntryRequest
+} from "../types";
 
-export const addAccountingEntry = () => {
-    return request.get('/test-db')
+export const addTransactionEntry = (data:AddTransactionEntryRequest) => {
+    return request.post('/transactions/add_transaction',data)
 }
 
 export const addAccountCategories = (data: AddAccountCategoryRequest) => {

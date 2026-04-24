@@ -18,24 +18,24 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { addAccountCategories, getCategories } from "@/api/modulse/accounting"
-import type { Category } from "@/api/types"
+import { toast } from "sonner"
+import {
+  addAccountCategories,
+  getCategories,
+  addTransactionEntry
+} from "@/api/modulse/accounting"
+import type {
+  Category
+ } from "@/api/types"
 type TxType = "expense" | "income"
 
-// interface Category {
-//   id: number
-//   name: string
-//   type: TxType
-//   parent_id: number | null
-//   icon: string | null
-// }
 
 interface Transaction {
   id: number
   type: TxType
   amount: number
-  category: string
-  date: string
+  category_id: number
+  transaction_date: string
   note: string
 }
 
@@ -46,31 +46,34 @@ export default function Accounting() {
   const [txOpen, setTxOpen] = useState(false)
   const [catOpen, setCatOpen] = useState(false)
 
-  useEffect(()=>{
-    getCategories({type:'expense'}).then((res: Category[])=>{
-      console.log(res)
-      setCategories(res)
-    })
-  },[])
+  //默认获取分类
+  useEffect(() => {
+    getCategories({ type: 'expense' })
+      .then((res: Category[]) => setCategories(res))
+      .catch(() => {})
+  }, [])
 
-  function handleAddTransaction(tx: Omit<Transaction, "id">) {
+
+  async function handleAddTransaction(tx: Omit<Transaction, "id">) {
+    await addTransactionEntry({ ...tx })
     setTransactions((prev) => [{ ...tx, id: Date.now() }, ...prev])
     setTxOpen(false)
+    toast.success("交易添加成功")
   }
 
-async function handleAddCategory(cat: Omit<Category, "id">) {
-    setCategories((prev) => [...prev, { ...cat, id: Date.now() }])
-    setCatOpen(false)
+  async function handleAddCategory(cat: Omit<Category, "id">) {
     try {
-      const res = await addAccountCategories({
+      await addAccountCategories({
         name: cat.name,
         type: cat.type,
         parent_id: cat.parent_id || undefined,
         icon: cat.icon || undefined,
       })
-      console.log(res)
-    } catch (error) {
-      console.error("Failed to add category:", error)
+      setCategories((prev) => [...prev, { ...cat, id: Date.now() }])
+      setCatOpen(false)
+      toast.success("分类添加成功")
+    } catch {
+      // 错误 toast 已由拦截器统一处理
     }
   }
 
@@ -125,13 +128,15 @@ async function handleAddCategory(cat: Omit<Category, "id">) {
                   >
                     {t.type === "expense" ? "支出" : "收入"}
                   </span>
-                  <span className="text-sm text-muted-foreground">{t.category}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {categories.find((c) => c.id === t.category_id)?.name ?? t.category_id}
+                  </span>
                   {t.note && (
                     <span className="text-sm text-muted-foreground">· {t.note}</span>
                   )}
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">{t.date}</span>
+                  <span className="text-xs text-muted-foreground">{t.transaction_date}</span>
                   <span
                     className={`font-medium ${
                       t.type === "expense"
@@ -164,7 +169,7 @@ function TransactionForm({ categories, onSubmit }: TransactionFormProps) {
   const [type, setType] = useState<TxType>("expense")
   const [amount, setAmount] = useState("")
   const [category, setCategory] = useState("")
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [transactionDate, setDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState("")
 
   const filtered = categories.filter((c) => c.type === type)
@@ -172,7 +177,7 @@ function TransactionForm({ categories, onSubmit }: TransactionFormProps) {
   const handleSubmit: React.ComponentProps<"form">["onSubmit"] = (e) => {
     e.preventDefault()
     if (!amount || !category) return
-    onSubmit({ type, amount: parseFloat(amount), category, date, note })
+    onSubmit({ type, amount: parseFloat(amount), category_id : Number(category), transaction_date: transactionDate, note })
   }
 
   return (
@@ -216,7 +221,7 @@ function TransactionForm({ categories, onSubmit }: TransactionFormProps) {
           </SelectTrigger>
           <SelectContent position="popper" className="w-(--radix-select-trigger-width)">
             {filtered.map((cat) => (
-              <SelectItem key={cat.id} value={cat.name}>
+              <SelectItem key={cat.id} value={String(cat.id)}>
                 {cat.icon ? `${cat.icon} ${cat.name}` : cat.name}
               </SelectItem>
             ))}
@@ -229,7 +234,7 @@ function TransactionForm({ categories, onSubmit }: TransactionFormProps) {
         <Input
           id="date"
           type="date"
-          value={date}
+          value={transactionDate}
           onChange={(e) => setDate(e.target.value)}
           required
         />
