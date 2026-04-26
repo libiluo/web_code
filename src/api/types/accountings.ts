@@ -1,7 +1,7 @@
 import type { AccountType } from "./basicModel";
 
 /**
- * 添加交易涉及类型
+ * 交易涉及类型
  */
 
 export interface AddTransactionEntryRequest {
@@ -13,7 +13,7 @@ export interface AddTransactionEntryRequest {
 }
 
 /**
- * 交易类型涉及类型
+ * 交易分类涉及类型
  */
 export interface AddAccountCategoryRequest {
     name :string,

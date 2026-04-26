@@ -18,12 +18,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   addAccountCategories,
   getCategories,
-  addTransactionEntry
-} from "@/api/modulse/accounting"
+  addTransactionEntry,
+  getTransactionList,
+  deleteTransactionEntry,
+  deleteCategoryEntry,
+  getTransactionsSummary,
+} from "@/api/modules/accounting"
 import type {
   Category
  } from "@/api/types"
@@ -39,24 +44,93 @@ interface Transaction {
   note: string
 }
 
+type Period = 'day' | 'month' | 'year'
+
+function getDateRange(p: Period): { start_date: string; end_date: string } {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  const fmt = (date: Date) => date.toISOString().slice(0, 10)
+  if (p === 'day') {
+    const today = fmt(now)
+    return { start_date: today, end_date: today }
+  }
+  if (p === 'month') {
+    return {
+      start_date: fmt(new Date(y, m, 1)),
+      end_date: fmt(new Date(y, m + 1, 0)),
+    }
+  }
+  return {
+    start_date: fmt(new Date(y, 0, 1)),
+    end_date: fmt(new Date(y, 11, 31)),
+  }
+}
+
 
 export default function Accounting() {
   const [categories, setCategories] = useState<Category[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [summary, setSummary] = useState<{ expense: number; income: number }>({ expense: 0, income: 0 })
+  const [period, setPeriod] = useState<Period>('month')
   const [txOpen, setTxOpen] = useState(false)
   const [catOpen, setCatOpen] = useState(false)
 
-  //默认获取分类
+  async function fetchSummary(p: Period) {
+    const range = getDateRange(p)
+    const res = await getTransactionsSummary(range)
+    setSummary(res ?? { expense: 0, income: 0 })
+  }
+
+  async function fetchCategories() {
+    const [expense, income] = await Promise.all([
+      getCategories({ type: 'expense' }),
+      getCategories({ type: 'income' }),
+    ])
+    setCategories([...expense, ...income])
+  }
+
+  async function fetchTransactions() {
+    const res = await getTransactionList()
+    setTransactions((res.items ?? []) as Transaction[])
+  }
+
   useEffect(() => {
-    getCategories({ type: 'expense' })
-      .then((res: Category[]) => setCategories(res))
+    Promise.all([
+      getCategories({ type: 'expense' }),
+      getCategories({ type: 'income' }),
+    ]).then(([expense, income]) => setCategories([...expense, ...income]))
       .catch(() => {})
+
+    getTransactionList().then(res => {
+      setTransactions((res.items ?? []) as Transaction[])
+    })
   }, [])
 
+  useEffect(() => {
+    const range = getDateRange(period)
+    getTransactionsSummary(range)
+      .then(res => setSummary(res ?? { expense: 0, income: 0 }))
+      .catch(() => {})
+  }, [period])
+
+  async function handleDeleteTransaction(id: number) {
+    await deleteTransactionEntry(id)
+    await fetchTransactions()
+    await fetchSummary(period)
+    toast.success("交易已删除")
+  }
+
+  async function handleDeleteCategory(id: number) {
+    await deleteCategoryEntry(id)
+    await fetchCategories()
+    toast.success("分类已删除")
+  }
 
   async function handleAddTransaction(tx: Omit<Transaction, "id">) {
     await addTransactionEntry({ ...tx })
-    setTransactions((prev) => [{ ...tx, id: Date.now() }, ...prev])
+    await fetchTransactions()
+    await fetchSummary(period)
     setTxOpen(false)
     toast.success("交易添加成功")
   }
@@ -69,8 +143,8 @@ export default function Accounting() {
         parent_id: cat.parent_id || undefined,
         icon: cat.icon || undefined,
       })
-      setCategories((prev) => [...prev, { ...cat, id: Date.now() }])
       setCatOpen(false)
+      await fetchCategories()
       toast.success("分类添加成功")
     } catch {
       // 错误 toast 已由拦截器统一处理
@@ -109,6 +183,79 @@ export default function Accounting() {
         </Dialog>
       </div>
 
+      {/* {categories.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg font-medium mb-3">分类列表</h2>
+          <div className="space-y-2">
+            {categories.map((c) => (
+              <div
+                key={c.id}
+                className="flex items-center justify-between rounded-lg border px-4 py-3"
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
+                      c.type === "expense"
+                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    }`}
+                  >
+                    {c.type === "expense" ? "支出" : "收入"}
+                  </span>
+                  {c.icon && <span>{c.icon}</span>}
+                  <span className="text-sm">{c.name}</span>
+                  {c.parent_id && (
+                    <span className="text-xs text-muted-foreground">
+                      · 父分类 {categories.find((p) => p.id === c.parent_id)?.name ?? c.parent_id} 
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => handleDeleteCategory(c.id)}
+                  className="text-muted-foreground hover:text-red-500 transition-colors"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )} */}
+
+      <div className="mb-6">
+        <div className="flex gap-2 mb-3">
+          {([
+            { value: 'day', label: '今日' },
+            { value: 'month', label: '今月' },
+            { value: 'year', label: '今年' },
+          ] as { value: Period; label: string }[]).map((p) => (
+            <Button
+              key={p.value}
+              type="button"
+              size="sm"
+              variant={period === p.value ? 'default' : 'outline'}
+              onClick={() => setPeriod(p.value)}
+            >
+              {p.label}
+            </Button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border px-4 py-3">
+            <div className="text-xs text-muted-foreground mb-1">收入</div>
+            <div className="text-lg font-semibold text-green-600 dark:text-green-400">
+              +¥{Number(summary.income).toFixed(2)}
+            </div>
+          </div>
+          <div className="rounded-lg border px-4 py-3">
+            <div className="text-xs text-muted-foreground mb-1">支出</div>
+            <div className="text-lg font-semibold text-red-600 dark:text-red-400">
+              -¥{Number(summary.expense).toFixed(2)}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {transactions.length > 0 ? (
         <div>
           <h2 className="text-lg font-medium mb-3">交易记录</h2>
@@ -144,8 +291,14 @@ export default function Accounting() {
                         : "text-green-600 dark:text-green-400"
                     }`}
                   >
-                    {t.type === "expense" ? "-" : "+"}¥{t.amount.toFixed(2)}
+                    {t.type === "expense" ? "-" : "+"}¥{t.amount}
                   </span>
+                  <button
+                    onClick={() => handleDeleteTransaction(t.id)}
+                    className="text-muted-foreground hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
               </div>
             ))}
