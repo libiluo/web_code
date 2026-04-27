@@ -26,7 +26,6 @@ import {
   addTransactionEntry,
   getTransactionList,
   deleteTransactionEntry,
-  deleteCategoryEntry,
   getTransactionsSummary,
 } from "@/api/modules/accounting"
 import type {
@@ -121,12 +120,6 @@ export default function Accounting() {
     toast.success("交易已删除")
   }
 
-  async function handleDeleteCategory(id: number) {
-    await deleteCategoryEntry(id)
-    await fetchCategories()
-    toast.success("分类已删除")
-  }
-
   async function handleAddTransaction(tx: Omit<Transaction, "id">) {
     await addTransactionEntry({ ...tx })
     await fetchTransactions()
@@ -182,45 +175,6 @@ export default function Accounting() {
           </DialogContent>
         </Dialog>
       </div>
-
-      {/* {categories.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-lg font-medium mb-3">分类列表</h2>
-          <div className="space-y-2">
-            {categories.map((c) => (
-              <div
-                key={c.id}
-                className="flex items-center justify-between rounded-lg border px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
-                      c.type === "expense"
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    }`}
-                  >
-                    {c.type === "expense" ? "支出" : "收入"}
-                  </span>
-                  {c.icon && <span>{c.icon}</span>}
-                  <span className="text-sm">{c.name}</span>
-                  {c.parent_id && (
-                    <span className="text-xs text-muted-foreground">
-                      · 父分类 {categories.find((p) => p.id === c.parent_id)?.name ?? c.parent_id} 
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => handleDeleteCategory(c.id)}
-                  className="text-muted-foreground hover:text-red-500 transition-colors"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )} */}
 
       <div className="mb-6">
         <div className="flex gap-2 mb-3">
