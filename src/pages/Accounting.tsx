@@ -1,4 +1,4 @@
-import { useEffect , useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,9 +16,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
-import { Trash2 } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   addAccountCategories,
@@ -28,11 +27,9 @@ import {
   deleteTransactionEntry,
   getTransactionsSummary,
 } from "@/api/modules/accounting"
-import type {
-  Category
- } from "@/api/types"
-type TxType = "expense" | "income"
+import type { Category } from "@/api/types"
 
+type TxType = "expense" | "income"
 
 interface Transaction {
   id: number
@@ -44,6 +41,18 @@ interface Transaction {
 }
 
 type Period = 'day' | 'month' | 'year'
+
+const PERIOD_LABEL: Record<Period, string> = {
+  day: '今日',
+  month: '本月',
+  year: '今年',
+}
+
+const BALANCE_LABEL: Record<Period, string> = {
+  day: '日结余',
+  month: '月结余',
+  year: '年结余',
+}
 
 function getDateRange(p: Period): { start_date: string; end_date: string } {
   const now = new Date()
@@ -66,6 +75,12 @@ function getDateRange(p: Period): { start_date: string; end_date: string } {
   }
 }
 
+function formatDateGroup(dateStr: string) {
+  const d = new Date(dateStr)
+  const md = `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, '0')}`
+  const weekday = d.toLocaleDateString('zh-CN', { weekday: 'long' })
+  return `${md} ${weekday}`
+}
 
 export default function Accounting() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -95,22 +110,12 @@ export default function Accounting() {
   }
 
   useEffect(() => {
-    Promise.all([
-      getCategories({ type: 'expense' }),
-      getCategories({ type: 'income' }),
-    ]).then(([expense, income]) => setCategories([...expense, ...income]))
-      .catch(() => {})
-
-    getTransactionList().then(res => {
-      setTransactions((res.items ?? []) as Transaction[])
-    })
+    fetchCategories().catch(() => {})
+    fetchTransactions().catch(() => {})
   }, [])
 
   useEffect(() => {
-    const range = getDateRange(period)
-    getTransactionsSummary(range)
-      .then(res => setSummary(res ?? { expense: 0, income: 0 }))
-      .catch(() => {})
+    fetchSummary(period).catch(() => {})
   }, [period])
 
   async function handleDeleteTransaction(id: number) {
@@ -144,123 +149,187 @@ export default function Accounting() {
     }
   }
 
+  const balance = summary.income - summary.expense
+  const categoryById = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories],
+  )
+
+  const grouped = useMemo(() => {
+    const map: Record<string, Transaction[]> = {}
+    for (const t of transactions) {
+      ;(map[t.transaction_date] ??= []).push(t)
+    }
+    return Object.entries(map).sort(([a], [b]) => b.localeCompare(a))
+  }, [transactions])
+
   return (
-    <div className="mx-auto max-w-2xl py-8 px-4">
-      <h1 className="text-3xl font-semibold mb-6">记账</h1>
-
-      <div className="flex gap-3 mb-8">
-        <Dialog open={txOpen} onOpenChange={setTxOpen}>
-          <DialogTrigger asChild>
-            <Button>添加交易</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>添加交易记录</DialogTitle>
-              <DialogDescription>记录一笔收入或支出</DialogDescription>
-            </DialogHeader>
-            <TransactionForm categories={categories} onSubmit={handleAddTransaction} />
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={catOpen} onOpenChange={setCatOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">添加分类</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>添加分类</DialogTitle>
-              <DialogDescription>新建一个交易分类</DialogDescription>
-            </DialogHeader>
-            <CategoryForm categories={categories} onSubmit={handleAddCategory} />
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="mb-6">
-        <div className="flex gap-2 mb-3">
-          {([
-            { value: 'day', label: '今日' },
-            { value: 'month', label: '今月' },
-            { value: 'year', label: '今年' },
-          ] as { value: Period; label: string }[]).map((p) => (
-            <Button
-              key={p.value}
-              type="button"
-              size="sm"
-              variant={period === p.value ? 'default' : 'outline'}
-              onClick={() => setPeriod(p.value)}
-            >
-              {p.label}
-            </Button>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border px-4 py-3">
-            <div className="text-xs text-muted-foreground mb-1">收入</div>
-            <div className="text-lg font-semibold text-green-600 dark:text-green-400">
-              +¥{Number(summary.income).toFixed(2)}
-            </div>
-          </div>
-          <div className="rounded-lg border px-4 py-3">
-            <div className="text-xs text-muted-foreground mb-1">支出</div>
-            <div className="text-lg font-semibold text-red-600 dark:text-red-400">
-              -¥{Number(summary.expense).toFixed(2)}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {transactions.length > 0 ? (
+    <div className="mx-auto max-w-xl">
+      {/* 页头 */}
+      <div className="mb-6 flex items-end justify-between">
         <div>
-          <h2 className="text-lg font-medium mb-3">交易记录</h2>
-          <div className="space-y-2">
-            {transactions.map((t) => (
-              <div
-                key={t.id}
-                className="flex items-center justify-between rounded-lg border px-4 py-3"
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">记账</h1>
+          <div className="mt-3 flex gap-1.5">
+            {(['day', 'month', 'year'] as Period[]).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPeriod(p)}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  period === p
+                    ? 'bg-foreground text-background'
+                    : 'bg-card text-muted-foreground hover:text-foreground'
+                }`}
               >
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${
-                      t.type === "expense"
-                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    }`}
-                  >
-                    {t.type === "expense" ? "支出" : "收入"}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {categories.find((c) => c.id === t.category_id)?.name ?? t.category_id}
-                  </span>
-                  {t.note && (
-                    <span className="text-sm text-muted-foreground">· {t.note}</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-muted-foreground">{t.transaction_date}</span>
-                  <span
-                    className={`font-medium ${
-                      t.type === "expense"
-                        ? "text-red-600 dark:text-red-400"
-                        : "text-green-600 dark:text-green-400"
-                    }`}
-                  >
-                    {t.type === "expense" ? "-" : "+"}¥{t.amount}
-                  </span>
-                  <button
-                    onClick={() => handleDeleteTransaction(t.id)}
-                    className="text-muted-foreground hover:text-red-500 transition-colors"
-                  >
-                    <Trash2 size={15} />
-                  </button>
-                </div>
-              </div>
+                {PERIOD_LABEL[p]}
+              </button>
             ))}
           </div>
         </div>
+        <Button variant="ghost" size="sm" onClick={() => setCatOpen(true)}>
+          管理分类
+        </Button>
+      </div>
+
+      {/* 汇总卡片 */}
+      <div className="mb-6 rounded-3xl bg-card p-6 shadow-sm">
+        <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="size-2 rounded-full bg-red-500" />
+          总支出 · {PERIOD_LABEL[period]}
+        </div>
+        <div className="mb-5 text-4xl font-bold tracking-tight text-foreground tabular-nums">
+          ¥{Number(summary.expense).toFixed(2)}
+        </div>
+        <div className="flex gap-8 text-sm">
+          <div>
+            <span className="mr-2 text-muted-foreground">总收入</span>
+            <span className="font-medium tabular-nums">
+              ¥{Number(summary.income).toFixed(2)}
+            </span>
+          </div>
+          <div>
+            <span className="mr-2 text-muted-foreground">{BALANCE_LABEL[period]}</span>
+            <span
+              className={`font-medium tabular-nums ${
+                balance < 0
+                  ? 'text-red-600 dark:text-red-400'
+                  : 'text-green-600 dark:text-green-400'
+              }`}
+            >
+              {balance >= 0 ? '+' : '-'}¥{Math.abs(balance).toFixed(2)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 交易记录（按日期分组） */}
+      {grouped.length > 0 ? (
+        <div className="space-y-6">
+          {grouped.map(([date, txs]) => {
+            const dailyExpense = txs
+              .filter((t) => t.type === 'expense')
+              .reduce((s, t) => s + Number(t.amount), 0)
+            const dailyIncome = txs
+              .filter((t) => t.type === 'income')
+              .reduce((s, t) => s + Number(t.amount), 0)
+            return (
+              <div key={date}>
+                <div className="mb-2 flex justify-between px-1 text-xs text-muted-foreground">
+                  <span>{formatDateGroup(date)}</span>
+                  <span className="tabular-nums">
+                    {dailyExpense > 0 && `支出 ¥${dailyExpense.toFixed(2)}`}
+                    {dailyIncome > 0 && (dailyExpense > 0 ? ' · ' : '') +
+                      `收入 ¥${dailyIncome.toFixed(2)}`}
+                  </span>
+                </div>
+                <div className="divide-y divide-border/50 overflow-hidden rounded-2xl bg-card shadow-sm">
+                  {txs.map((t) => {
+                    const cat = categoryById.get(t.category_id)
+                    return (
+                      <div
+                        key={t.id}
+                        className="group flex items-center gap-3 px-4 py-3"
+                      >
+                        <div
+                          className={`flex size-10 shrink-0 items-center justify-center rounded-full text-lg ${
+                            t.type === 'expense'
+                              ? 'bg-red-50 dark:bg-red-950/30'
+                              : 'bg-green-50 dark:bg-green-950/30'
+                          }`}
+                        >
+                          {cat?.icon || (t.type === 'expense' ? '💸' : '💰')}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium text-foreground">
+                            {cat?.name ?? `分类 #${t.category_id}`}
+                          </div>
+                          {t.note && (
+                            <div className="truncate text-xs text-muted-foreground">
+                              {t.note}
+                            </div>
+                          )}
+                        </div>
+                        <div
+                          className={`text-sm font-semibold tabular-nums ${
+                            t.type === 'expense'
+                              ? 'text-foreground'
+                              : 'text-green-600 dark:text-green-400'
+                          }`}
+                        >
+                          {t.type === 'expense' ? '-' : '+'}¥
+                          {Number(t.amount).toFixed(2)}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteTransaction(t.id)}
+                          className="text-muted-foreground/30 transition-colors hover:text-red-500"
+                          aria-label="删除"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       ) : (
-        <p className="text-sm text-muted-foreground">暂无交易记录</p>
+        <div className="rounded-2xl bg-card py-16 text-center text-sm text-muted-foreground shadow-sm">
+          暂无交易记录
+        </div>
       )}
+
+      {/* 浮动添加按钮 */}
+      <button
+        type="button"
+        onClick={() => setTxOpen(true)}
+        className="fixed bottom-24 right-5 z-40 flex size-14 items-center justify-center rounded-full bg-amber-400 shadow-lg transition hover:bg-amber-500 active:scale-95 md:bottom-8 md:right-8"
+        aria-label="添加交易"
+      >
+        <Plus size={26} strokeWidth={2.5} className="text-white" />
+      </button>
+
+      {/* 弹窗 */}
+      <Dialog open={txOpen} onOpenChange={setTxOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>添加交易记录</DialogTitle>
+            <DialogDescription>记录一笔收入或支出</DialogDescription>
+          </DialogHeader>
+          <TransactionForm categories={categories} onSubmit={handleAddTransaction} />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={catOpen} onOpenChange={setCatOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>添加分类</DialogTitle>
+            <DialogDescription>新建一个交易分类</DialogDescription>
+          </DialogHeader>
+          <CategoryForm categories={categories} onSubmit={handleAddCategory} />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -284,7 +353,7 @@ function TransactionForm({ categories, onSubmit }: TransactionFormProps) {
   const handleSubmit: React.ComponentProps<"form">["onSubmit"] = (e) => {
     e.preventDefault()
     if (!amount || !category) return
-    onSubmit({ type, amount: parseFloat(amount), category_id : Number(category), transaction_date: transactionDate, note })
+    onSubmit({ type, amount: parseFloat(amount), category_id: Number(category), transaction_date: transactionDate, note })
   }
 
   return (
@@ -379,7 +448,6 @@ function CategoryForm({ categories, onSubmit }: CategoryFormProps) {
   const [parentId, setParentId] = useState<string>(NO_PARENT)
   const [icon, setIcon] = useState("")
 
-  // 父类型只能是同类型下的顶层分类
   const parentOptions = categories.filter((c) => c.type === type && c.parent_id === null)
 
   const handleSubmit: React.ComponentProps<"form">["onSubmit"] = (e) => {
