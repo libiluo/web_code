@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,7 +18,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, Trash2 } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Loader2, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   addAccountCategories,
@@ -46,12 +48,6 @@ const PERIOD_LABEL: Record<Period, string> = {
   day: '今日',
   month: '本月',
   year: '今年',
-}
-
-const BALANCE_LABEL: Record<Period, string> = {
-  day: '日结余',
-  month: '月结余',
-  year: '年结余',
 }
 
 function getDateRange(p: Period): { start_date: string; end_date: string } {
@@ -83,73 +79,91 @@ function formatDateGroup(dateStr: string) {
 }
 
 export default function Accounting() {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [summary, setSummary] = useState<{ expense: number; income: number }>({ expense: 0, income: 0 })
   const [period, setPeriod] = useState<Period>('month')
   const [txOpen, setTxOpen] = useState(false)
   const [catOpen, setCatOpen] = useState(false)
 
-  async function fetchSummary(p: Period) {
-    const range = getDateRange(p)
-    const res = await getTransactionsSummary(range)
-    setSummary(res ?? { expense: 0, income: 0 })
+  const queryClient = useQueryClient()
+
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery<Category[]>({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const [expense, income] = await Promise.all([
+        getCategories({ type: 'expense' }),
+        getCategories({ type: 'income' }),
+      ])
+      return [...expense, ...income]
+    },
+  })
+
+  const { data: transactionData, isLoading: transactionsLoading } = useQuery({
+    queryKey: ['transactions'],
+    queryFn: () => getTransactionList(),
+  })
+  const transactions = useMemo(
+    () => (transactionData?.items ?? []) as Transaction[],
+    [transactionData],
+  )
+
+  const {
+    data: summary = { expense: 0, income: 0 },
+    isFetching: summaryLoading,
+  } = useQuery({
+    queryKey: ['summary', period],
+    queryFn: () => getTransactionsSummary(getDateRange(period)),
+  })
+
+  function invalidateTxAndSummary() {
+    queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    queryClient.invalidateQueries({ queryKey: ['summary'] })
   }
 
-  async function fetchCategories() {
-    const [expense, income] = await Promise.all([
-      getCategories({ type: 'expense' }),
-      getCategories({ type: 'income' }),
-    ])
-    setCategories([...expense, ...income])
-  }
+  const addTxMutation = useMutation({
+    mutationFn: addTransactionEntry,
+    onSuccess: () => {
+      invalidateTxAndSummary()
+      setTxOpen(false)
+      toast.success('交易添加成功')
+    },
+  })
 
-  async function fetchTransactions() {
-    const res = await getTransactionList()
-    setTransactions((res.items ?? []) as Transaction[])
-  }
+  const deleteTxMutation = useMutation({
+    mutationFn: deleteTransactionEntry,
+    onSuccess: () => {
+      invalidateTxAndSummary()
+      toast.success('交易已删除')
+    },
+  })
 
-  useEffect(() => {
-    fetchCategories().catch(() => {})
-    fetchTransactions().catch(() => {})
-  }, [])
-
-  useEffect(() => {
-    fetchSummary(period).catch(() => {})
-  }, [period])
-
-  async function handleDeleteTransaction(id: number) {
-    await deleteTransactionEntry(id)
-    await fetchTransactions()
-    await fetchSummary(period)
-    toast.success("交易已删除")
-  }
-
-  async function handleAddTransaction(tx: Omit<Transaction, "id">) {
-    await addTransactionEntry({ ...tx })
-    await fetchTransactions()
-    await fetchSummary(period)
-    setTxOpen(false)
-    toast.success("交易添加成功")
-  }
-
-  async function handleAddCategory(cat: Omit<Category, "id">) {
-    try {
-      await addAccountCategories({
-        name: cat.name,
-        type: cat.type,
-        parent_id: cat.parent_id || undefined,
-        icon: cat.icon || undefined,
-      })
+  const addCatMutation = useMutation({
+    mutationFn: addAccountCategories,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
       setCatOpen(false)
-      await fetchCategories()
-      toast.success("分类添加成功")
-    } catch {
-      // 错误 toast 已由拦截器统一处理
-    }
+      toast.success('分类添加成功')
+    },
+  })
+
+  function handleDeleteTransaction(id: number) {
+    deleteTxMutation.mutate(id)
   }
 
-  const balance = summary.income - summary.expense
+  function handleAddTransaction(tx: Omit<Transaction, 'id'>) {
+    addTxMutation.mutate(tx)
+  }
+
+  function handleAddCategory(cat: Omit<Category, 'id'>) {
+    addCatMutation.mutate({
+      name: cat.name,
+      type: cat.type,
+      parent_id: cat.parent_id || undefined,
+      icon: cat.icon || undefined,
+    })
+  }
+
+  const isDeletingId = (id: number) =>
+    deleteTxMutation.isPending && deleteTxMutation.variables === id
+
   const categoryById = useMemo(
     () => new Map(categories.map((c) => [c.id, c])),
     [categories],
@@ -168,7 +182,6 @@ export default function Accounting() {
       {/* 页头 */}
       <div className="mb-6 flex items-end justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">记账</h1>
           <div className="mt-3 flex gap-1.5">
             {(['day', 'month', 'year'] as Period[]).map((p) => (
               <button
@@ -196,10 +209,17 @@ export default function Accounting() {
         <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
           <span className="size-2 rounded-full bg-red-500" />
           总支出 · {PERIOD_LABEL[period]}
+          {summaryLoading && (
+            <Loader2 className="ml-1 size-3 animate-spin text-muted-foreground" />
+          )}
         </div>
-        <div className="mb-5 text-4xl font-bold tracking-tight text-foreground tabular-nums">
-          ¥{Number(summary.expense).toFixed(2)}
-        </div>
+        {summaryLoading && !summary.expense && !summary.income ? (
+          <Skeleton className="mb-5 h-10 w-40" />
+        ) : (
+          <div className="mb-5 text-4xl font-bold tracking-tight text-foreground tabular-nums">
+            ¥{Number(summary.expense).toFixed(2)}
+          </div>
+        )}
         <div className="flex gap-8 text-sm">
           <div>
             <span className="mr-2 text-muted-foreground">总收入</span>
@@ -207,23 +227,13 @@ export default function Accounting() {
               ¥{Number(summary.income).toFixed(2)}
             </span>
           </div>
-          <div>
-            <span className="mr-2 text-muted-foreground">{BALANCE_LABEL[period]}</span>
-            <span
-              className={`font-medium tabular-nums ${
-                balance < 0
-                  ? 'text-red-600 dark:text-red-400'
-                  : 'text-green-600 dark:text-green-400'
-              }`}
-            >
-              {balance >= 0 ? '+' : '-'}¥{Math.abs(balance).toFixed(2)}
-            </span>
-          </div>
         </div>
       </div>
 
       {/* 交易记录（按日期分组） */}
-      {grouped.length > 0 ? (
+      {transactionsLoading || categoriesLoading ? (
+        <TransactionListSkeleton />
+      ) : grouped.length > 0 ? (
         <div className="space-y-6">
           {grouped.map(([date, txs]) => {
             const dailyExpense = txs
@@ -281,10 +291,15 @@ export default function Accounting() {
                         </div>
                         <button
                           onClick={() => handleDeleteTransaction(t.id)}
-                          className="text-muted-foreground/30 transition-colors hover:text-red-500"
+                          disabled={isDeletingId(t.id)}
+                          className="text-muted-foreground/30 transition-colors hover:text-red-500 disabled:opacity-50"
                           aria-label="删除"
                         >
-                          <Trash2 size={15} />
+                          {isDeletingId(t.id) ? (
+                            <Loader2 size={15} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={15} />
+                          )}
                         </button>
                       </div>
                     )
@@ -317,7 +332,11 @@ export default function Accounting() {
             <DialogTitle>添加交易记录</DialogTitle>
             <DialogDescription>记录一笔收入或支出</DialogDescription>
           </DialogHeader>
-          <TransactionForm categories={categories} onSubmit={handleAddTransaction} />
+          <TransactionForm
+            categories={categories}
+            submitting={addTxMutation.isPending}
+            onSubmit={handleAddTransaction}
+          />
         </DialogContent>
       </Dialog>
 
@@ -327,9 +346,42 @@ export default function Accounting() {
             <DialogTitle>添加分类</DialogTitle>
             <DialogDescription>新建一个交易分类</DialogDescription>
           </DialogHeader>
-          <CategoryForm categories={categories} onSubmit={handleAddCategory} />
+          <CategoryForm
+            categories={categories}
+            submitting={addCatMutation.isPending}
+            onSubmit={handleAddCategory}
+          />
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+// -------------------- 列表骨架 --------------------
+
+function TransactionListSkeleton() {
+  return (
+    <div className="space-y-6">
+      {[0, 1].map((g) => (
+        <div key={g}>
+          <div className="mb-2 flex justify-between px-1">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+          <div className="divide-y divide-border/50 overflow-hidden rounded-2xl bg-card shadow-sm">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3">
+                <Skeleton className="size-10 shrink-0 rounded-full" />
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <Skeleton className="h-3.5 w-24" />
+                  <Skeleton className="h-3 w-32" />
+                </div>
+                <Skeleton className="h-4 w-16" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -338,10 +390,11 @@ export default function Accounting() {
 
 interface TransactionFormProps {
   categories: Category[]
+  submitting?: boolean
   onSubmit: (tx: Omit<Transaction, "id">) => void
 }
 
-function TransactionForm({ categories, onSubmit }: TransactionFormProps) {
+function TransactionForm({ categories, submitting, onSubmit }: TransactionFormProps) {
   const [type, setType] = useState<TxType>("expense")
   const [amount, setAmount] = useState("")
   const [category, setCategory] = useState("")
@@ -427,7 +480,10 @@ function TransactionForm({ categories, onSubmit }: TransactionFormProps) {
       </div>
 
       <DialogFooter>
-        <Button type="submit">添加记录</Button>
+        <Button type="submit" disabled={submitting}>
+          {submitting && <Loader2 className="size-4 animate-spin" />}
+          添加记录
+        </Button>
       </DialogFooter>
     </form>
   )
@@ -437,12 +493,13 @@ function TransactionForm({ categories, onSubmit }: TransactionFormProps) {
 
 interface CategoryFormProps {
   categories: Category[]
+  submitting?: boolean
   onSubmit: (cat: Omit<Category, "id">) => void
 }
 
 const NO_PARENT = "__none__"
 
-function CategoryForm({ categories, onSubmit }: CategoryFormProps) {
+function CategoryForm({ categories, submitting, onSubmit }: CategoryFormProps) {
   const [name, setName] = useState("")
   const [type, setType] = useState<TxType>("expense")
   const [parentId, setParentId] = useState<string>(NO_PARENT)
@@ -518,7 +575,10 @@ function CategoryForm({ categories, onSubmit }: CategoryFormProps) {
       </div>
 
       <DialogFooter>
-        <Button type="submit">添加分类</Button>
+        <Button type="submit" disabled={submitting}>
+          {submitting && <Loader2 className="size-4 animate-spin" />}
+          添加分类
+        </Button>
       </DialogFooter>
     </form>
   )

@@ -4,7 +4,20 @@ import axios, {
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from 'axios'
+import NProgress from 'nprogress'
 import { toast } from 'sonner'
+
+NProgress.configure({ showSpinner: false, trickleSpeed: 200, minimum: 0.1 })
+
+let pendingCount = 0
+function startProgress() {
+  if (pendingCount === 0) NProgress.start()
+  pendingCount++
+}
+function stopProgress() {
+  pendingCount = Math.max(0, pendingCount - 1)
+  if (pendingCount === 0) NProgress.done()
+}
 
 interface ApiResponse<T = unknown> {
   code: number
@@ -23,15 +36,20 @@ const instance: AxiosInstance = axios.create({
 
 instance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    startProgress()
     const token = localStorage.getItem(TOKEN_KEY)
     if (token) config.headers.Authorization = `Bearer ${token}`
     return config
   },
-  (error) => Promise.reject(error),
+  (error) => {
+    stopProgress()
+    return Promise.reject(error)
+  },
 )
 
 instance.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
+    stopProgress()
     const { code, message, data } = response.data
     if (code !== SUCCESS_CODE) {
       switch (code) {
@@ -47,6 +65,7 @@ instance.interceptors.response.use(
     return data as unknown as AxiosResponse
   },
   (error) => {
+    stopProgress()
     const status = error.response?.status
     const msg =
       status === 401

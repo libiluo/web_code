@@ -10,7 +10,7 @@ const navItems = [
 
 export default function MainLayout() {
   return (
-    <div className="min-h-svh flex flex-col bg-muted dark:bg-background">
+    <div className="min-h-svh flex flex-col bg-[#F8F9FA] dark:bg-background">
       {/* Header：仅桌面端，移动端由页面自身提供标题 */}
       <header className="sticky top-0 z-50 hidden border-b border-border bg-background/80 backdrop-blur md:block">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
