@@ -29,18 +29,13 @@ import {
   deleteTransactionEntry,
   getTransactionsSummary,
 } from "@/api/modules/accounting"
-import type { Category } from "@/api/types"
+import type { 
+  Category,
+  AccountType,
+  TransactionListItem
+} from "@/api/types"
 
-type TxType = "expense" | "income"
-
-interface Transaction {
-  id: number
-  type: TxType
-  amount: number
-  category_id: number
-  transaction_date: string
-  note: string
-}
+type TxType = AccountType
 
 type Period = 'day' | 'month' | 'year'
 
@@ -54,7 +49,8 @@ function getDateRange(p: Period): { start_date: string; end_date: string } {
   const now = new Date()
   const y = now.getFullYear()
   const m = now.getMonth()
-  const fmt = (date: Date) => date.toISOString().slice(0, 10)
+  const fmt = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
   if (p === 'day') {
     const today = fmt(now)
     return { start_date: today, end_date: today }
@@ -100,11 +96,6 @@ export default function Accounting() {
     queryKey: ['transactions'],
     queryFn: () => getTransactionList(),
   })
-  const transactions = useMemo(
-    () => (transactionData?.items ?? []) as Transaction[],
-    [transactionData],
-  )
-
   const {
     data: summary = { expense: 0, income: 0 },
     isFetching: summaryLoading,
@@ -148,7 +139,7 @@ export default function Accounting() {
     deleteTxMutation.mutate(id)
   }
 
-  function handleAddTransaction(tx: Omit<Transaction, 'id'>) {
+  function handleAddTransaction(tx: Omit<TransactionListItem, 'id'>) {
     addTxMutation.mutate(tx)
   }
 
@@ -170,12 +161,12 @@ export default function Accounting() {
   )
 
   const grouped = useMemo(() => {
-    const map: Record<string, Transaction[]> = {}
-    for (const t of transactions) {
+    const map: Record<string, TransactionListItem[]> = {}
+    for (const t of (transactionData?.items ?? [])) {
       ;(map[t.transaction_date] ??= []).push(t)
     }
     return Object.entries(map).sort(([a], [b]) => b.localeCompare(a))
-  }, [transactions])
+  }, [transactionData])
 
   return (
     <div className="mx-auto max-w-xl">
@@ -254,7 +245,6 @@ export default function Accounting() {
                 </div>
                 <div className="divide-y divide-border/50 overflow-hidden rounded-2xl bg-card shadow-sm">
                   {txs.map((t) => {
-                    const cat = categoryById.get(t.category_id)
                     return (
                       <div
                         key={t.id}
@@ -267,11 +257,11 @@ export default function Accounting() {
                               : 'bg-green-50 dark:bg-green-950/30'
                           }`}
                         >
-                          {cat?.icon || (t.type === 'expense' ? '💸' : '💰')}
+                          {t?.icon || (t.type === 'expense' ? '💸' : '💰')}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-medium text-foreground">
-                            {cat?.name ?? `分类 #${t.category_id}`}
+                            {t?.parent_category_name} - {t?.category_name}
                           </div>
                           {t.note && (
                             <div className="truncate text-xs text-muted-foreground">

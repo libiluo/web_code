@@ -5,7 +5,8 @@ import type {
     Category, 
     CategoryListRequest,
     //交易相关
-    AddTransactionEntryRequest
+    AddTransactionEntryRequest,
+    TransactionListResponse
 } from "../types";
 
 
@@ -17,10 +18,7 @@ export const addTransactionEntry = (data:AddTransactionEntryRequest) => {
 }
 
 export const getTransactionList = () => {
-    return request.get<{
-        items: unknown[]
-        summary: { expense: number; income: number }
-    }>('/transactions/transactions_list')
+    return request.get<TransactionListResponse>('/transactions/transactions_list')
 }
 
 export const deleteTransactionEntry = (id: number) => {

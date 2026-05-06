@@ -12,6 +12,24 @@ export interface AddTransactionEntryRequest {
     note?: string
 }
 
+export interface TransactionListItem {
+    id: number,
+    type: AccountType,
+    category_name: string,
+    amount: number,
+    parent_category_name: string,
+    transaction_date: string,
+    note: string,
+    icon: string | null,
+    category_id: number
+}
+export interface TransactionListResponse {
+    items: TransactionListItem[]
+    total: number
+    page: number
+    page_size: number
+}
+
 /**
  * 交易分类涉及类型
  */
