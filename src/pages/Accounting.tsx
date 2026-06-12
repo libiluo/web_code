@@ -67,6 +67,18 @@ function getDateRange(p: Period): { start_date: string; end_date: string } {
   }
 }
 
+function getLastMonthRange(): { start_date: string; end_date: string } {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  const fmt = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  return {
+    start_date: fmt(new Date(y, m - 1, 1)),
+    end_date: fmt(new Date(y, m, 0)),
+  }
+}
+
 function formatDateGroup(dateStr: string) {
   const d = new Date(dateStr)
   const md = `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, '0')}`
@@ -102,6 +114,13 @@ export default function Accounting() {
   } = useQuery({
     queryKey: ['summary', period],
     queryFn: () => getTransactionsSummary(getDateRange(period)),
+  })
+  const {
+    data: lastMonthSummary = { expense: 0, income: 0 },
+    isFetching: lastMonthLoading,
+  } = useQuery({
+    queryKey: ['summary', 'last-month'],
+    queryFn: () => getTransactionsSummary(getLastMonthRange()),
   })
 
   function invalidateTxAndSummary() {
@@ -217,6 +236,31 @@ export default function Accounting() {
             <span className="font-medium tabular-nums">
               ¥{Number(summary.income).toFixed(2)}
             </span>
+          </div>
+        </div>
+
+        {/* 上月统计 */}
+        <div className="mt-5 border-t border-border/50 pt-4">
+          <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="size-2 rounded-full bg-muted-foreground/40" />
+            上月统计
+            {lastMonthLoading && (
+              <Loader2 className="ml-1 size-3 animate-spin text-muted-foreground" />
+            )}
+          </div>
+          <div className="flex gap-8 text-sm">
+            <div>
+              <span className="mr-2 text-muted-foreground">支出</span>
+              <span className="font-medium tabular-nums">
+                ¥{Number(lastMonthSummary.expense).toFixed(2)}
+              </span>
+            </div>
+            <div>
+              <span className="mr-2 text-muted-foreground">收入</span>
+              <span className="font-medium tabular-nums">
+                ¥{Number(lastMonthSummary.income).toFixed(2)}
+              </span>
+            </div>
           </div>
         </div>
       </div>

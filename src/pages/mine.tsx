@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { logout as logoutApi } from '@/api/modules/user'
 import { clearAuth } from '@/lib/auth'
 
-export default function Articles() {
+export default function Mine() {
   const { isLoggedIn } = useAuth()
   const [open, setOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)

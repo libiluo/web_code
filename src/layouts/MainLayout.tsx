@@ -1,11 +1,11 @@
 import { Outlet, NavLink } from "react-router-dom"
-import { Home, BookOpen, FileText, Wallet } from "lucide-react"
+import { Home, BookOpen, User, Wallet } from "lucide-react"
 
 const navItems = [
   { to: "/", label: "首页", icon: Home },
   { to: "/accounting", label: "记账", icon: Wallet },
   { to: "/books", label: "书籍", icon: BookOpen },
-  { to: "/articles", label: "文章", icon: FileText },
+  { to: "/user", label: "我的", icon: User },
 ]
 
 export default function MainLayout() {

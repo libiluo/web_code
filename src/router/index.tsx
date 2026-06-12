@@ -3,7 +3,7 @@ import MainLayout from "../layouts/MainLayout"
 import Home from "../pages/Home"
 import Accounting from "../pages/Accounting"
 import Books from "../pages/Books"
-import Articles from "../pages/Articles"
+import Mine from "../pages/mine"
 
 const router = createBrowserRouter([
   {
@@ -13,7 +13,7 @@ const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: "accounting", element: <Accounting /> },
       { path: "books", element: <Books /> },
-      { path: "articles", element: <Articles /> },
+      { path: "user", element: <Mine /> },
     ],
   },
 ])
